@@ -1,0 +1,399 @@
+/*
+Package http provides HTTP client and server implementations.
+
+Get, Head, Post, and PostForm make HTTP (or HTTPS) requests:
+
+	resp, err := http.Get("http://example.com/")
+	...
+	resp, err := http.Post("http://example.com/upload", "image/jpeg", &buf)
+	...
+	resp, err := http.PostForm("http://example.com/form",
+		url.Values{"key": {"Value"}, "id": {"123"}})
+
+The client must close the response body when finished with it:
+
+	resp, err := http.Get("http://example.com/")
+	if err != nil {
+		// handle error
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	// ...
+
+For control over HTTP client headers, redirect policy, and other
+settings, create a Client:
+
+	client := &http.Client{
+		CheckRedirect: redirectPolicyFunc,
+	}
+
+	resp, err := client.Get("http://example.com")
+	// ...
+
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	// ...
+	req.Header.Add("If-None-Match", `W/"wyzzy"`)
+	resp, err := client.Do(req)
+	// ...
+
+For control over proxies, TLS configuration, keep-alives,
+compression, and other settings, create a Transport:
+
+	tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get("https://example.com")
+
+Clients and Transports are safe for concurrent use by multiple
+goroutines and for efficiency should only be created once and re-used.
+
+ListenAndServe starts an HTTP server with a given address and handler.
+The handler is usually nil, which means to use DefaultServeMux.
+Handle and HandleFunc add handlers to DefaultServeMux:
+
+	http.Handle("/foo", fooHandler)
+
+	http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
+
+More control over the server's behavior is available by creating a
+custom Server:
+
+	s := &http.Server{
+		Addr:           ":8080",
+		Handler:        myHandler,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	log.Fatal(s.ListenAndServe())
+
+Starting with Go 1.6, the http package has transparent support for the
+HTTP/2 protocol when using HTTPS. Programs that must disable HTTP/2
+can do so by setting Transport.TLSNextProto (for clients) or
+Server.TLSNextProto (for servers) to a non-nil, empty
+map. Alternatively, the following GODEBUG environment variables are
+currently supported:
+
+	GODEBUG=http2client=0  # disable HTTP/2 client support
+	GODEBUG=http2server=0  # disable HTTP/2 server support
+	GODEBUG=http2debug=1   # enable verbose HTTP/2 debug logs
+	GODEBUG=http2debug=2   # ... even more verbose, with frame dumps
+
+The GODEBUG variables are not covered by Go's API compatibility
+promise. Please report any issues before disabling HTTP/2
+support: https://golang.org/s/http2bug
+
+The http package's Transport and Server both automatically enable
+HTTP/2 support for simple configurations. To enable HTTP/2 for more
+complex configurations, to use lower-level HTTP/2 features, or to use
+a newer version of Go's http2 package, import "golang.org/x/net/http2"
+directly and use its ConfigureTransport and/or ConfigureServer
+functions. Manually configuring HTTP/2 via the golang.org/x/net/http2
+package takes precedence over the net/http package's built-in HTTP/2
+support.
+
+*/
+
+
+
+/*
+http包提供HTTP客户端和服务器实现。
+
+Get, Head, Post, and PostForm函数创建一个http或https请求:
+
+	resp, err := http.Get("http://example.com/")
+	...
+	resp, err := http.Post("http://example.com/upload", "image/jpeg", &buf)
+	...
+	resp, err := http.PostForm("http://example.com/form",
+		url.Values{"key": {"Value"}, "id": {"123"}})
+
+请求完成后，客户端必须关闭响应Body:
+
+	resp, err := http.Get("http://example.com/")
+	if err != nil {
+		// handle error
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	// ...
+
+用于控制HTTP客户端标头，重定向策略和其他
+设置，创建一个客户端：
+
+	client := &http.Client{
+		CheckRedirect: redirectPolicyFunc,
+	}
+
+	resp, err := client.Get("http://example.com")
+	// ...
+
+	req, err := http.NewRequest("GET", "http://example.com", nil)
+	// ...
+	req.Header.Add("If-None-Match", `W/"wyzzy"`)
+	resp, err := client.Do(req)
+	// ...
+
+用于控制代理，TLS配置，保持活动状态，
+压缩和其他设置，创建传输：
+
+	tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get("https://example.com")
+
+Client和Transport对于多个goroutine并发使用是安全的，
+并且效率仅应创建一次并重新使用。
+
+ListenAndServe使用给定的地址和处理程序启动HTTP服务器。
+该处理程序通常为nil，这意味着要使用DefaultServeMux。
+Handle和HandleFunc将处理程序添加到DefaultServeMux：
+
+	http.Handle("/foo", fooHandler)
+
+	http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+	})
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
+
+通过创建自定义服务器，可以更好地控制服务器的行为
+：
+
+	s := &http.Server{
+		Addr:           ":8080",
+		Handler:        myHandler,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	log.Fatal(s.ListenAndServe())
+
+从Go 1.6开始，http程序包对
+使用HTTPS时的HTTP/2协议。 必须禁用HTTP/2的程序
+可以通过设置Transport.TLSNextProto（对于客户端）来实现，或者
+Server.TLSNextProto（对于服务器）为非nil，为空
+地图。 另外，以下GODEBUG环境变量是
+目前支持：
+
+	GODEBUG=http2client=0  # disable HTTP/2 client support
+	GODEBUG=http2server=0  # disable HTTP/2 server support
+	GODEBUG=http2debug=1   # enable verbose HTTP/2 debug logs
+	GODEBUG=http2debug=2   # ... even more verbose, with frame dumps
+
+Go的API兼容性保证不涵盖GODEBUG变量。
+请先报告所有问题，然后再禁用HTTP/2
+支持：https://golang.org/s/http2bug
+
+http包的Transport和Server都自动启用HTTP/2支持简单配置。 
+启用HTTP/2以获得更多复杂的配置，
+以使用较低级别的HTTP/2功能，或使用
+Go的http2软件包的较新版本，导入"golang.org/x/net/http2"
+直接使用其ConfigureTransport和/或ConfigureServer
+功能。 通过golang.org/x/net/http2手动配置HTTP/2
+程序包优先于net/http程序包的内置HTTP/2
+支持。
+
+*/
+
+
+// Common HTTP methods.
+// Unless otherwise noted, these are defined in RFC 7231 section 4.3.
+// HTTP status codes as registered with IANA.
+
+// 常见的HTTP方法。
+// 除非另有说明，否则方法在RFC 7231第4.3节中定义。
+// 已向IANA注册的HTTP状态代码。
+
+// DefaultMaxHeaderBytes is the maximum permitted size of the headers
+// in an HTTP request.
+// This can be overridden by setting Server.MaxHeaderBytes.
+
+// DefaultMaxHeaderBytes是HTTP请求中标头的最大允许大小。 
+// 可以通过设置Server.MaxHeaderBytes来覆盖它。
+//
+
+// DefaultMaxIdleConnsPerHost is the default value of Transport's
+// MaxIdleConnsPerHost.
+
+// DefaultMaxIdleConnsPerHost是Transport的MaxIdleConnsPerHost的默认值。
+//
+
+// TimeFormat is the time format to use when generating times in HTTP
+// headers. It is like time.RFC1123 but hard-codes GMT as the time
+// zone. The time being formatted must be in UTC for Format to
+// generate the correct format.
+//
+// For parsing this time format, see ParseTime.
+
+// TimeFormat是在HTTP标头中生成时间时要使用的时间格式。 
+// 就像time.RFC1123一样，但是将GMT硬编码为时区。 
+// 格式化的时间必须采用UTC格式才能生成正确的格式。
+//
+//
+// 有关解析此时间格式的信息，请参见ParseTime。
+
+// TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
+// that, if present, signals that the map entry is actually for
+// the response trailers, and not the response headers. The prefix
+// is stripped after the ServeHTTP call finishes and the values are
+// sent in the trailers.
+//
+// This mechanism is intended only for trailers that are not known
+// prior to the headers being written. If the set of trailers is fixed
+// or known before the header is written, the normal Go trailers mechanism
+// is preferred:
+
+// TrailerPrefix是ResponseWriter的不可思议的前缀.Header映射键（如果存在的话）表示映射条目实际上是用于响应尾部的，而不是响应头的。
+//
+//
+// ServeHTTP调用完成后，前缀将被删除，并且值将在预告片中发送。
+//
+//
+// 此机制仅适用于在写入标头之前未知的预告片。 
+// 如果在写头之前固定的或已知的预告片组，则首选普通的Go预告片机制：
+//
+//
+
+// ErrNotSupported is returned by the Push method of Pusher
+// implementations to indicate that HTTP/2 Push support is not
+// available.
+
+// ErrNotSupported由Pusher实现的Push方法返回，
+// 以指示HTTP / 2 Push支持不可用。
+//
+
+// Deprecated: ErrUnexpectedTrailer is no longer returned by
+// anything in the net/http package. Callers should not
+// compare errors against this variable.
+
+// 不推荐使用：net/http包中的任何内容都不再返回ErrUnexpectedTrailer。 
+// 调用者不应将错误与此变量进行比较。
+//
+
+// ErrMissingBoundary is returned by Request.MultipartReader when the
+// request's Content-Type does not include a "boundary" parameter.
+
+// 当请求的Content-Type不包含"boundary"参数时，
+// Request.MultipartReader返回ErrMissingBoundary。
+
+// ErrNotMultipart is returned by Request.MultipartReader when the
+// request's Content-Type is not multipart/form-data.
+
+// 当请求的Content-Type不是multipart/form-data时，
+// Request.MultipartReader返回ErrNotMultipart。
+
+// Deprecated: ErrHeaderTooLong is no longer returned by
+// anything in the net/http package. Callers should not
+// compare errors against this variable.
+
+// 不推荐使用： net/http包中的任何内容都不再返回ErrHeaderTooLong。 
+// 调用者不应将错误与此变量进行比较。
+//
+
+// Deprecated: ErrShortBody is no longer returned by
+// anything in the net/http package. Callers should not
+// compare errors against this variable.
+
+// 不推荐使用： net/http包中的任何内容都不再返回ErrShortBody。 
+// 调用者不应将错误与此变量进行比较。
+//
+
+// Deprecated: ErrMissingContentLength is no longer returned by
+// anything in the net/http package. Callers should not
+// compare errors against this variable.
+
+// 不推荐使用： net/http包中的任何内容都不再返回ErrMissingContentLength。 
+// 调用者不应将错误与此变量进行比较。
+//
+
+// Errors used by the HTTP server.
+
+// HTTP服务器使用的错误。
+
+// ErrBodyNotAllowed is returned by ResponseWriter.Write calls
+// when the HTTP method or response code does not permit a
+// body.
+
+// ErrBodyNotAllowed由ResponseWriter.Write调用返回，
+// 当HTTP方法或响应代码不允许正文时。
+//
+
+// ErrHijacked is returned by ResponseWriter.Write calls when
+// the underlying connection has been hijacked using the
+// Hijacker interface. A zero-byte write on a hijacked
+// connection will return ErrHijacked without any other side
+// effects.
+
+// ErrHijacked由ResponseWriter返回。
+// 当使用Hijacker接口劫持了基础连接时，Write调用。 
+// 在被劫持的连接上进行零字节写入将返回ErrHijacked，
+// 而不会产生任何其他副作用。
+//
+
+// ErrContentLength is returned by ResponseWriter.Write calls
+// when a Handler set a Content-Length response header with a
+// declared size and then attempted to write more bytes than
+// declared.
+
+// 当处理程序设置了声明长度的Content-Length响应标头，
+// 然后尝试写入比声明更多的字节时，
+// ResponseWriter返回ErrContentLength.Write调用。
+//
+
+// Deprecated: ErrWriteAfterFlush is no longer returned by
+// anything in the net/http package. Callers should not
+// compare errors against this variable.
+
+// 不推荐使用：net/http包中的任何内容都不再返回ErrWriteAfterFlush。 
+// 调用者不应将错误与此变量进行比较。
+//
+
+// ServerContextKey is a context key. It can be used in HTTP
+// handlers with Context.Value to access the server that
+// started the handler. The associated value will be of
+// type *Server.
+
+// ServerContextKey是Context key。
+// 可以在带有Context.Value的HTTP处理程序中使用它来访问启动处理程序的服务器。 
+// 关联的值将为* Server类型。
+//
+
+// LocalAddrContextKey is a context key. It can be used in
+// HTTP handlers with Context.Value to access the local
+// address the connection arrived on.
+// The associated value will be of type net.Addr.
+
+// LocalAddrContextKey是Context key。 
+// 可以在带有Context.Value的HTTP处理程序中使用它来访问连接到达的本地地址。 
+// 关联的值将为net.Addr类型。
+//
+
+// DefaultClient is the default Client and is used by Get, Head, and Post.
+
+// DefaultClient是默认客户端，由Get，Head和Post使用。
+
+// DefaultServeMux is the default ServeMux used by Serve.
+
+// DefaultServeMux是Serve使用的默认ServeMux。
+
+// ErrAbortHandler is a sentinel panic value to abort a handler.
+// While any panic from ServeHTTP aborts the response to the client,
+// panicking with ErrAbortHandler also suppresses logging of a stack
+// trace to the server's error log.
+
+// ErrAbortHandler是一个中止panic，用于中止处理程序。
+// 来自ServeHTTP的任何恐慌都会中止对客户端的响应，
+// 而使用ErrAbortHandler进行恐慌还会抑制将堆栈跟踪记录到服务器的错误日志中。
+//
+

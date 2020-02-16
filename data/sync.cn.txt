@@ -1,0 +1,55 @@
+// Package sync provides basic synchronization primitives such as mutual
+// exclusion locks. Other than the Once and WaitGroup types, most are intended
+// for use by low-level library routines. Higher-level synchronization is
+// better done via channels and communication.
+//
+// Values containing the types defined in this package should not be copied.
+
+// sync包提供基本的同步操作，例如互斥锁。
+// 除Once和WaitGroup类型外，大多数都供低级库例程使用。
+// 更高级别的同步最好通过Channels和通信来完成。
+//
+//
+// 在此包中定义的类型的值不应复制。
+
+// Cond implements a condition variable, a rendezvous point
+// for goroutines waiting for or announcing the occurrence
+// of an event.
+//
+// Each Cond has an associated Locker L (often a *Mutex or *RWMutex),
+// which must be held when changing the condition and
+// when calling the Wait method.
+//
+// A Cond must not be copied after first use.
+
+// cond实现一个条件变量，一个线程集合点
+// 用于等待或宣布发生的goroutine
+// 事件。
+//
+// 每个Cond都有一个关联的Lock（通常是*Mutex或*RWMutex），
+// 更改条件时或调用Wait方法时
+// 必须保存锁定状态。
+//
+// Cond第一次使用后不能被复制。
+
+// NewCond returns a new Cond with Locker l.
+
+// NewCond函数返回带有Locker的新Cond。
+
+// Wait atomically unlocks c.L and suspends execution
+// of the calling goroutine. After later resuming execution,
+// Wait locks c.L before returning. Unlike in other systems,
+// Wait cannot return unless awoken by Broadcast or Signal.
+//
+// Because c.L is not locked when Wait first resumes, the caller
+// typically cannot assume that the condition is true when
+// Wait returns. Instead, the caller should Wait in a loop:
+
+// Wait原子地解锁c.L并中止调用goroutine的执行。
+// 稍后恢复执行后，等待锁定c.L，然后再返回。
+// 与其他系统不同，等待不会返回，除非被Broadcast或者Signal唤醒。
+//
+//
+// 因为在Wait第一次恢复时c.L未被锁定，所以调用者通常无法假定等待返回时条件为真。
+//
+// 而是，调用者应在循环中等待：
